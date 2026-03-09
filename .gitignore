@@ -1,0 +1,19 @@
+cat > .gitignore << EOF
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Runtime files (don't commit)
+*.log
+assistant_memory.db
+assistant_memory.index
+assistant_memory.map
+
+# OS files
+.DS_Store
+.env
+EOF
