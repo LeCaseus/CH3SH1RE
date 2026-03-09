@@ -1,4 +1,4 @@
-# CheshireOS
+# CH3SH1RE
 
 Hello! This is my first repo ever. I built this local AI assistant just for fun as a side project.
 This is my first project that will be a part of a bigger portfolio as I learn more about programming.
