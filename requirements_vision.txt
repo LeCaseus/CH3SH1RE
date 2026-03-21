@@ -1,5 +1,0 @@
-Flask==2.3.3
-transformers>=4.37
-torch>=2.0
-Pillow>=10.0
-requests>=2.31.0
