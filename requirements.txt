@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+requests
+ddgs
+python-multipart
+PyMuPDF
+python-docx

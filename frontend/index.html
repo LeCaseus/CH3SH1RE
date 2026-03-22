@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CH3SH1RE</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- header -->
+    <header>
+      <div class="header-left">
+        <span class="site-label">LOCAL AI</span>
+        <span class="divider">✦</span>
+        <span class="site-label">PRIVATE</span>
+        <span class="divider">✦</span>
+        <span class="site-label">OFFLINE</span>
+      </div>
+      <div class="header-center">
+        <h1>CH3SH<em>1</em>RE</h1>
+      </div>
+      <div class="header-right">
+        <span class="status-dot" id="status_dot"></span>
+        <span class="status-label" id="status_label">CONNECTING</span>
+      </div>
+    </header>
+
+    <!-- marquee -->
+    <div class="marquee-wrap">
+      <div class="marquee-track">
+        <span>CHAT ✦ RESEARCH ✦ WRITING ✦ CAREER ✦ PLANNING ✦ PERSONAL ✦ STUDY ✦ CHAT ✦ RESEARCH ✦ WRITING ✦ CAREER ✦ PLANNING ✦ PERSONAL ✦ STUDY ✦ CHAT ✦ RESEARCH ✦ WRITING ✦ CAREER ✦ PLANNING ✦ PERSONAL ✦ STUDY ✦</span>
+      </div>
+    </div>
+
+    <!-- main layout -->
+    <main>
+      <!-- sidebar -->
+      <aside>
+        <div class="aside-block">
+          <p class="aside-label">MODEL</p>
+          <p class="aside-value"><em>qwen2.5:7b</em></p>
+        </div>
+        <div class="aside-block">
+          <p class="aside-label">BACKEND</p>
+          <p class="aside-value"><em>ollama</em></p>
+        </div>
+        <div class="aside-block">
+          <p class="aside-label">MEMORY</p>
+          <p class="aside-value"><em>sqlite</em></p>
+        </div>
+        <div class="aside-block">
+          <p class="aside-label">SEARCH</p>
+          <p class="aside-value"><em>duckduckgo</em></p>
+        </div>
+
+        <div class="aside-divider">✦</div>
+
+        <div class="aside-block">
+          <p class="aside-label">COMMANDS</p>
+          <p class="aside-hint">attach a file with your message for CV, cover letter, or document tasks</p>
+        </div>
+
+        <div class="aside-divider">✦</div>
+
+        <button class="clear-btn" id="clear_btn">CLEAR CHAT</button>
+      </aside>
+
+      <!-- chat area -->
+      <section class="chat-section">
+        <div class="chat-window" id="chat_window">
+          <!-- welcome state -->
+          <div class="welcome" id="welcome_msg">
+            <p class="welcome-eyebrow">HELLO ✦</p>
+            <h2>I'M <em>CH3SH1RE.</em></h2>
+            <p class="welcome-sub">Your private local AI. Ask me anything.</p>
+          </div>
+        </div>
+
+        <!-- input bar -->
+        <div class="input-area">
+          <div class="file-preview" id="file_preview" style="display:none">
+            <span id="file_name"></span>
+            <button id="remove_file">✕</button>
+          </div>
+          <div class="input-row">
+            <label class="attach-btn" for="file_input" title="Attach file">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+            </label>
+            <input type="file" id="file_input" accept=".pdf,.docx,.txt" style="display:none" />
+            <textarea
+              id="msg_input"
+              placeholder="Ask me anything..."
+              rows="1"
+            ></textarea>
+            <button class="send-btn" id="send_btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
+          <p class="input-footer">CH3SH1RE runs entirely on your machine. Nothing leaves your device. ✦</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
