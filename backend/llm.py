@@ -1,5 +1,6 @@
 import requests
 import json
+from concurrent.futures import ThreadPoolExecutor
 from .prompts import get_thinking_prompt, get_synthesis_prompt
 
 # Ollama runs locally on this port — no API key, no cloud
@@ -11,21 +12,25 @@ TEMP_CAUTIOUS = 0.3  # grounded, conservative — sticks close to facts
 TEMP_CREATIVE = 0.8  # expansive, associative — surfaces angles the cautious pass misses
 
 
-def ask_llm(messages: list, stream: bool = False, temperature: float = 0.7) -> str:
+def ask_llm(
+    messages: list, stream: bool = False, temperature: float | None = None
+) -> str:
     """Send a conversation to Ollama and return the response.
 
     messages:    full conversation history as list of role/content dicts
     stream:      True only for final answers shown to user, False for internal calls
-    temperature: controls output variance — 0.3 cautious, 0.7 default, 0.8 creative
+    temperature: overrides model default when set — None leaves Ollama's default alone
     """
     payload = {
         "model": MODEL,
         "messages": messages,
         "stream": stream,
         "keep_alive": "1h",
-        # added: temperature is now explicit — no longer relying on model default
-        "options": {"temperature": temperature},
     }
+
+    # only inject temperature when explicitly set — None means leave Ollama's default alone
+    if temperature is not None:
+        payload["options"] = {"temperature": temperature}
 
     if stream:
         response = requests.post(OLLAMA_URL, json=payload, stream=True)
@@ -35,7 +40,7 @@ def ask_llm(messages: list, stream: bool = False, temperature: float = 0.7) -> s
                 continue
             try:
                 data = json.loads(line.decode("utf-8"))
-            except:
+            except Exception:
                 continue
             chunk = data.get("message", {}).get("content", "")
             print(chunk, end="", flush=True)
@@ -76,30 +81,29 @@ def think(messages: list) -> str:
 
 
 def synthesize(messages: list) -> str:
-    """Multi-temperature synthesis pass — silent, never shown to user directly.
+    """Multi-temperature synthesis — silent, never shown to user directly.
 
-    Runs the same message list twice at different temperatures:
-      - cautious draft (0.3): factual, grounded, conservative
-      - creative draft (0.8): expansive, associative, more exploratory
+    The cautious and creative drafts are fired in parallel via ThreadPoolExecutor,
+    so the wait is roughly one inference time instead of two sequential ones.
+    A third synthesis pass then merges both drafts into a single best answer.
 
-    A third pass reads both drafts and writes a final version that combines
-    the reliability of the cautious one with the depth of the creative one.
-
-    Returns the synthesized answer as a string, which router.py injects
-    into the system prompt so stream_llm_chunks() delivers it to the user.
+    Returns the synthesized string — router.py injects it into the system prompt
+    so stream_llm_chunks() delivers the final response to the user.
     """
-    print("[synthesis] running cautious draft (0.3)...")
-    cautious_draft = ask_llm(messages, stream=False, temperature=TEMP_CAUTIOUS)
+    print("[synthesis] cautious + creative drafts (parallel)...")
 
-    print("[synthesis] running creative draft (0.8)...")
-    creative_draft = ask_llm(messages, stream=False, temperature=TEMP_CREATIVE)
+    # both drafts are independent — run them at the same time
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        cautious_future = executor.submit(ask_llm, messages, False, TEMP_CAUTIOUS)
+        creative_future = executor.submit(ask_llm, messages, False, TEMP_CREATIVE)
+        cautious_draft = cautious_future.result()
+        creative_draft = creative_future.result()
 
-    # extract the original user question for the synthesis prompt
     user_question = next(
         (m["content"] for m in reversed(messages) if m["role"] == "user"), ""
     )
 
-    print("[synthesis] running synthesis pass...")
+    print("[synthesis] synthesis pass...")
     synthesis_messages = [
         get_synthesis_prompt(),
         {
@@ -112,8 +116,9 @@ def synthesize(messages: list) -> str:
             ),
         },
     ]
-    # synthesis pass runs at default temperature — no need to skew either direction
-    return ask_llm(synthesis_messages, stream=False, temperature=0.7)
+
+    # synthesis pass at default temperature — no need to skew either direction
+    return ask_llm(synthesis_messages, stream=False)
 
 
 def stream_llm_chunks(messages: list):
@@ -125,8 +130,6 @@ def stream_llm_chunks(messages: list):
         "messages": messages,
         "stream": True,
         "keep_alive": "1h",
-        # added: keep temperature explicit and consistent with ask_llm default
-        "options": {"temperature": 0.7},
     }
     response = requests.post(OLLAMA_URL, json=payload, stream=True)
     for line in response.iter_lines():

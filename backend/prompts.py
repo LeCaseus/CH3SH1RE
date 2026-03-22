@@ -138,6 +138,25 @@ def get_search_synthesis_prompt() -> dict:
     }
 
 
+def get_synthesis_prompt() -> dict:
+    # used for the third pass in multi-temperature synthesis — never shown to user
+    return {
+        "role": "system",
+        "content": (
+            "You are a synthesis editor. You have two drafts answering the same question. "
+            "Draft A is cautious: accurate and grounded but may be too brief or miss nuance. "
+            "Draft B is creative: expansive and exploratory but may over-reach or speculate. "
+            "Write one final answer that combines the reliability of Draft A with the depth of Draft B. "
+            "Rules: "
+            "1. Never mention Draft A or Draft B — just write the answer. "
+            "2. Cut anything speculative not grounded in Draft A's facts. "
+            "3. Keep useful framing or angles from Draft B that add genuine value. "
+            "4. Match the tone and length appropriate to the question. "
+            "5. Do not pad — if the cautious draft was already complete, don't inflate it."
+        ),
+    }
+
+
 def get_thinking_prompt() -> dict:
     # used for the silent reasoning pass — never shown to user
     return {
@@ -147,25 +166,5 @@ def get_thinking_prompt() -> dict:
             "The user has asked a question. Think through it step by step. "
             "Consider the key facts, possible approaches, and what could go wrong. "
             "Do not write a final answer yet — just reason out loud."
-        ),
-    }
-
-
-def get_synthesis_prompt() -> dict:
-    # used for the multi-temperature synthesis pass — never shown to user directly
-    # receives two drafts and produces the final answer injected into the response
-    return {
-        "role": "system",
-        "content": (
-            "You are an expert editor and synthesizer. "
-            "You will be given two drafts of an answer to the same question: "
-            "one cautious and factual, one creative and expansive. "
-            "Your job is to write a single best answer that: "
-            "1. Preserves all accurate facts and grounded reasoning from the cautious draft. "
-            "2. Incorporates useful depth, nuance, or angles from the creative draft. "
-            "3. Cuts anything redundant, speculative, or off-topic. "
-            "4. Reads as one coherent, natural response — not a stitched-together merge. "
-            "Do not mention the two drafts or that a synthesis was performed. "
-            "Just write the best answer."
         ),
     }

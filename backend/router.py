@@ -17,11 +17,9 @@ from typing import Callable, Optional
 # intents complex enough to benefit from a reasoning pass
 COT_INTENTS = {"career", "research", "study", "planning"}
 
-# intents where multi-temperature synthesis adds value —
-# these are open-ended enough that a creative draft surfaces real depth,
-# but grounded enough that the cautious draft keeps it accurate
-# (chat and summarise deliberately excluded — too fast/too simple to justify 3x compute)
-SYNTHESIS_INTENTS = {"career", "research", "planning", "personal"}
+# intents that benefit from multi-temperature synthesis —
+# questions where both reliability and depth matter, not pure chat or quick lookups
+MULTI_TEMP_INTENTS = {"career", "research", "planning"}
 
 # keywords that trigger each prompt — order matters, more specific first
 INTENT_MAP = [
@@ -289,15 +287,18 @@ def build_messages(
             f"do not repeat it verbatim):\n{reasoning}"
         )
 
-    # multi-temperature synthesis for open-ended intents — runs two drafts
-    # at different temperatures then merges them into one best answer,
-    # injected as a guide so the streamed response stays coherent
-    if intent_name in SYNTHESIS_INTENTS:
-        print(f"Synthesising [{intent_name}]...")
-        synthesized = synthesize([system, {"role": "user", "content": user_input}])
+    final_messages = [system, {"role": "user", "content": user_input}]
+
+    # multi-temperature synthesis — runs two drafts at different temperatures
+    # then combines them into a single better answer injected as context
+    # only fires for intents where depth + reliability both matter
+    # skipped for quick search — those answers are time-sensitive, not analytical
+    if intent_name in MULTI_TEMP_INTENTS and not needs_quick_search(user_input):
+        print(f"[multi-temp] running synthesis [{intent_name}]...")
+        synthesis = synthesize(final_messages)
         system["content"] += (
-            f"\n\nPre-synthesized answer for reference "
-            f"(use this as your answer, deliver it naturally):\n{synthesized}"
+            f"\n\nPre-synthesized answer from multi-temperature reasoning "
+            f"(use this as the basis for your response, refine the phrasing if needed):\n{synthesis}"
         )
 
     return [system, {"role": "user", "content": user_input}]
