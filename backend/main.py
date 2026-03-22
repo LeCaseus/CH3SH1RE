@@ -14,18 +14,6 @@ from .llm import ask_llm, stream_llm_chunks
 from .extractor import extract_facts
 from .memory import upsert_fact
 
-app = FastAPI()
-
-# allows the frontend to talk to the backend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-BASE_DIR = Path(__file__).parent.parent  # points to CH3SH1RE/
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,6 +26,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# allows the frontend to talk to the backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+BASE_DIR = Path(__file__).parent.parent  # points to CH3SH1RE/
 
 
 @app.get("/")
