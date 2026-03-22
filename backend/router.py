@@ -142,20 +142,50 @@ INTENT_MAP = [
     ),
 ]
 
-# keywords that trigger a web search
-SEARCH_TRIGGERS = [
+# quick lookups — one search, answer immediately
+# these are time-sensitive or factual point queries that don't benefit from iteration
+QUICK_SEARCH_TRIGGERS = [
     "today",
+    "right now",
+    "weather",
+    "price",
+    "score",
+    "news",
     "latest",
     "current",
-    "news",
     "now",
-    "price",
-    "weather",
-    "score",
     "update",
     "recent",
-    "right now",
     "happened",
+]
+
+# deep research triggers — questions that require synthesis across multiple sources
+# these are exploratory or analytical, not point-in-time lookups
+DEEP_SEARCH_TRIGGERS = [
+    "how does",
+    "how do",
+    "why does",
+    "why do",
+    "what is",
+    "what are",
+    "explain",
+    "research",
+    "deep dive",
+    "tell me about",
+    "find out",
+    "look into",
+    "investigate",
+    "overview of",
+    "breakdown of",
+    "history of",
+    "impact of",
+    "effect of",
+    "benefits of",
+    "risks of",
+    "pros and cons of",
+    "everything about",
+    "what should i know",
+    "help me understand",
 ]
 
 
@@ -167,20 +197,31 @@ def detect_intent(user_input: str) -> tuple[str, Callable]:
         if any(kw in text for kw in keywords):
             return intent, prompt_fn
 
-    # default to general chat
     return "chat", get_chat_prompt
 
 
-def needs_search(user_input: str) -> bool:
-    """Decide if the query needs a live web search."""
+def needs_quick_search(user_input: str) -> bool:
+    """True for time-sensitive or point-in-time lookups — runs one search only."""
     text = user_input.lower()
-    return any(trigger in text for trigger in SEARCH_TRIGGERS)
+    return any(trigger in text for trigger in QUICK_SEARCH_TRIGGERS)
+
+
+def needs_deep_research(user_input: str) -> bool:
+    """True for exploratory or analytical questions — runs the multi-round loop.
+    Only fires if the query is NOT already caught by needs_quick_search,
+    so "latest news about how vaccines work" stays a quick lookup."""
+    text = user_input.lower()
+    if len(text.split()) < 5:
+        return False
+    return any(trigger in text for trigger in DEEP_SEARCH_TRIGGERS)
 
 
 def build_messages(
     user_input: str, memories: list[dict], file_path: Optional[str] = None
 ) -> list[dict]:
-    from .llm import think  # here to avoid circular import at module level
+    # imported here to avoid circular import at module level
+    from .llm import think
+    from .researcher import deep_research
 
     intent_name, prompt_fn = detect_intent(user_input)
 
@@ -189,10 +230,19 @@ def build_messages(
         file_context = f"\n\nDocument provided by user:\n{read_file(file_path)}"
 
     search_context = ""
-    if needs_search(user_input):
-        print("Searching the web...")
+
+    # quick search takes priority — if the query is time-sensitive, don't loop
+    if needs_quick_search(user_input):
+        print("Quick search...")
         results = search_web(user_input)
         search_context = f"\n\nWeb search results:\n{results}"
+        prompt_fn = get_search_synthesis_prompt
+
+    # deep research fires only when the query is exploratory, not a quick lookup
+    elif needs_deep_research(user_input):
+        print("Starting deep research...")
+        results = deep_research(user_input)
+        search_context = f"\n\nResearch results (multiple rounds):\n{results}"
         prompt_fn = get_search_synthesis_prompt
 
     memory_context = ""
@@ -210,8 +260,8 @@ def build_messages(
     system = prompt_fn()
     system["content"] += memory_context + file_context + search_context
 
-    # placed first so the model treats these as ground truth before anything else
-    # inject known user facts and behavioral instructions into every system prompt
+    # inject known user facts and behavioural instructions first,
+    # so the model treats them as ground truth before anything else
     facts = get_all_facts()
     if facts["facts"] or facts["instructions"]:
         prefix = ""
@@ -220,9 +270,11 @@ def build_messages(
         if facts["instructions"]:
             prefix += f"Instructions for responding to this user:\n{facts['instructions']}\n\n"
         system["content"] = prefix + system["content"]
+
     base_messages = [system, {"role": "user", "content": user_input}]
 
-    # reasoning pass for complex intents
+    # reasoning pass for complex intents — runs after search so the model
+    # can reason over actual results, not just the raw question
     if intent_name in COT_INTENTS:
         print(f"Thinking [{intent_name}]...")
         reasoning = think(base_messages)
