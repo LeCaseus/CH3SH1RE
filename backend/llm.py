@@ -4,7 +4,7 @@ from .prompts import get_thinking_prompt
 
 # Ollama runs locally on this port — no API key, no cloud
 OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "qwen2.5:7b"
+MODEL = "qwen3:4b"
 
 
 def ask_llm(messages: list, stream: bool = False) -> str:

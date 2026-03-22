@@ -32,7 +32,9 @@ INTENT_MAP = [
             "salary",
             "hire",
             "hiring",
-            "application",
+            "job application",
+            "applying for",
+            "application for",
             "fit for",
             "apply",
         ],
@@ -123,6 +125,7 @@ INTENT_MAP = [
         "personal",
         get_personal_life_prompt,
         [
+            "recommend a recipe",
             "recipe",
             "cook",
             "ingredient",
@@ -211,7 +214,9 @@ def needs_deep_research(user_input: str) -> bool:
     Only fires if the query is NOT already caught by needs_quick_search,
     so "latest news about how vaccines work" stays a quick lookup."""
     text = user_input.lower()
-    if len(text.split()) < 5:
+    if len(text.split()) < 7:
+        return False
+    if needs_quick_search(user_input):
         return False
     return any(trigger in text for trigger in DEEP_SEARCH_TRIGGERS)
 
@@ -230,6 +235,7 @@ def build_messages(
         file_context = f"\n\nDocument provided by user:\n{read_file(file_path)}"
 
     search_context = ""
+    search_fired = False
 
     # quick search takes priority — if the query is time-sensitive, don't loop
     if needs_quick_search(user_input):
@@ -237,6 +243,7 @@ def build_messages(
         results = search_web(user_input)
         search_context = f"\n\nWeb search results:\n{results}"
         prompt_fn = get_search_synthesis_prompt
+        search_fired = True
 
     # deep research fires only when the query is exploratory, not a quick lookup
     elif needs_deep_research(user_input):
@@ -244,6 +251,7 @@ def build_messages(
         results = deep_research(user_input)
         search_context = f"\n\nResearch results (multiple rounds):\n{results}"
         prompt_fn = get_search_synthesis_prompt
+        search_fired = True
 
     memory_context = ""
     if memories:
@@ -275,7 +283,7 @@ def build_messages(
 
     # reasoning pass for complex intents — runs after search so the model
     # can reason over actual results, not just the raw question
-    if intent_name in COT_INTENTS:
+    if intent_name in COT_INTENTS and not search_fired:
         print(f"Thinking [{intent_name}]...")
         reasoning = think(base_messages)
         system["content"] += (
