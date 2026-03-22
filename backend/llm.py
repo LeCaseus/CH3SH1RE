@@ -39,5 +39,29 @@ def ask_llm(messages: list, stream: bool = False) -> str:
     else:
         response = requests.post(OLLAMA_URL, json=payload)
         data = response.json()
-        print("DEBUG:", data)
         return data.get("message", {}).get("content", "").strip()
+
+
+def stream_llm_chunks(messages: list):
+    """Generator that yields raw content chunks from Ollama one at a time.
+    Used by the /chat endpoint so the frontend can render words as they arrive
+    instead of waiting for the full response."""
+    payload = {
+        "model": MODEL,
+        "messages": messages,
+        "stream": True,
+        "keep_alive": "1h",
+    }
+    response = requests.post(OLLAMA_URL, json=payload, stream=True)
+    for line in response.iter_lines():
+        if not line:
+            continue
+        try:
+            data = json.loads(line.decode("utf-8"))
+        except Exception:
+            continue
+        chunk = data.get("message", {}).get("content", "")
+        if chunk:
+            yield chunk
+        if data.get("done"):
+            break

@@ -1,7 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -11,7 +10,7 @@ import os
 
 from .memory import init_db, save_memory, get_recent_memories, search_memories
 from .router import build_messages
-from .llm import ask_llm
+from .llm import ask_llm, stream_llm_chunks
 
 app = FastAPI()
 
@@ -24,10 +23,6 @@ app.add_middleware(
 )
 
 BASE_DIR = Path(__file__).parent.parent  # points to CH3SH1RE/
-
-print("BASE_DIR:", BASE_DIR)
-print("Frontend path:", BASE_DIR / "frontend")
-print("Files exist:", list((BASE_DIR / "frontend").iterdir()))
 
 
 @asynccontextmanager
@@ -82,11 +77,16 @@ def chat(message: str = Form(...), file: UploadFile = File(None)):
             seen.add(key)
             memories.append(m)
 
-    # build full message list and call the LLM
+    # build full message list
     messages = build_messages(message, memories, file_path)
-    response = ask_llm(messages)
 
-    # save to memory
-    save_memory(message, response)
+    def generate():
+        # stream chunks to the browser as they arrive from Ollama
+        # accumulate the full response so we can save it to memory at the end
+        full_response = ""
+        for chunk in stream_llm_chunks(messages):
+            full_response += chunk
+            yield chunk
+        save_memory(message, full_response)
 
-    return {"response": response}
+    return StreamingResponse(generate(), media_type="text/plain")

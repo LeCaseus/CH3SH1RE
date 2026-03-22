@@ -27,7 +27,7 @@ def read_file(file_path: str) -> str:
             import fitz
 
             doc = fitz.open(file_path)
-            return "\n".join(str(page.get_text()) for page in doc)
+            return "\n".join(str(doc[i].get_text()) for i in range(len(doc)))
 
         elif file_path.endswith(".docx"):
             from docx import Document

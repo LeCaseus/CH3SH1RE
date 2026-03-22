@@ -110,7 +110,7 @@ async function sendMessage() {
   // show thinking indicator
   const thinkingEl = appendThinking();
 
-  try {
+try {
     const formData = new FormData();
     formData.append("message", text);
     if (fileToSend) formData.append("file", fileToSend);
@@ -120,15 +120,27 @@ async function sendMessage() {
       body: formData,
     });
 
-    const data = await res.json();
+    // first chunk has arrived — swap the thinking dots for a real (empty) bubble
     thinkingEl.remove();
-    appendMessage("ai", data.response || "No response.");
+    const aiWrap = appendMessage("ai", "");
+    const bubble = aiWrap.querySelector(".msg-bubble");
+
+    // read the stream and append each chunk directly into the bubble
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bubble.textContent += decoder.decode(value, { stream: true });
+      scrollToBottom();
+    }
 
   } catch (err) {
     thinkingEl.remove();
     appendMessage("ai", "Connection error. Is CH3SH1RE running?");
   }
-
+  
   setInputState(true);
   msgInput.focus();
 }
