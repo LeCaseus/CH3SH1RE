@@ -149,3 +149,23 @@ def get_thinking_prompt() -> dict:
             "Do not write a final answer yet — just reason out loud."
         ),
     }
+
+
+def get_synthesis_prompt() -> dict:
+    # used for the multi-temperature synthesis pass — never shown to user directly
+    # receives two drafts and produces the final answer injected into the response
+    return {
+        "role": "system",
+        "content": (
+            "You are an expert editor and synthesizer. "
+            "You will be given two drafts of an answer to the same question: "
+            "one cautious and factual, one creative and expansive. "
+            "Your job is to write a single best answer that: "
+            "1. Preserves all accurate facts and grounded reasoning from the cautious draft. "
+            "2. Incorporates useful depth, nuance, or angles from the creative draft. "
+            "3. Cuts anything redundant, speculative, or off-topic. "
+            "4. Reads as one coherent, natural response — not a stitched-together merge. "
+            "Do not mention the two drafts or that a synthesis was performed. "
+            "Just write the best answer."
+        ),
+    }

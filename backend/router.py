@@ -17,6 +17,12 @@ from typing import Callable, Optional
 # intents complex enough to benefit from a reasoning pass
 COT_INTENTS = {"career", "research", "study", "planning"}
 
+# intents where multi-temperature synthesis adds value —
+# these are open-ended enough that a creative draft surfaces real depth,
+# but grounded enough that the cautious draft keeps it accurate
+# (chat and summarise deliberately excluded — too fast/too simple to justify 3x compute)
+SYNTHESIS_INTENTS = {"career", "research", "planning", "personal"}
+
 # keywords that trigger each prompt — order matters, more specific first
 INTENT_MAP = [
     (
@@ -220,7 +226,7 @@ def build_messages(
     user_input: str, memories: list[dict], file_path: Optional[str] = None
 ) -> list[dict]:
     # imported here to avoid circular import at module level
-    from .llm import think
+    from .llm import think, synthesize
     from .researcher import deep_research
 
     intent_name, prompt_fn = detect_intent(user_input)
@@ -281,6 +287,17 @@ def build_messages(
         system["content"] += (
             f"\n\nYour internal reasoning (use this to inform your answer, "
             f"do not repeat it verbatim):\n{reasoning}"
+        )
+
+    # multi-temperature synthesis for open-ended intents — runs two drafts
+    # at different temperatures then merges them into one best answer,
+    # injected as a guide so the streamed response stays coherent
+    if intent_name in SYNTHESIS_INTENTS:
+        print(f"Synthesising [{intent_name}]...")
+        synthesized = synthesize([system, {"role": "user", "content": user_input}])
+        system["content"] += (
+            f"\n\nPre-synthesized answer for reference "
+            f"(use this as your answer, deliver it naturally):\n{synthesized}"
         )
 
     return [system, {"role": "user", "content": user_input}]
