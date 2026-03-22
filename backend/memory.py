@@ -21,6 +21,64 @@ def init_db():
     )
     conn.commit()
     conn.close()
+    init_facts_table()
+
+
+def init_facts_table():
+    # separate table so facts are always clean and queryable,
+    # not buried inside raw conversation text
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_facts (
+            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            key     TEXT UNIQUE,
+            value   TEXT,
+            updated TEXT
+        )
+    """
+    )
+    conn.commit()
+    conn.close()
+
+
+def upsert_fact(key: str, value: str):
+    # insert or overwrite — same key always holds the latest value,
+    # so "location: Manila" gets replaced cleanly by "location: Wellington"
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        """
+        INSERT INTO user_facts (key, value, updated)
+        VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated = excluded.updated
+        """,
+        (key, value, datetime.datetime.now().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_all_facts() -> dict:
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT key, value FROM user_facts ORDER BY key")
+    rows = c.fetchall()
+    conn.close()
+
+    facts_lines = []
+    instruction_lines = []
+    for key, value in rows:
+        if key.startswith("instruction_"):
+            instruction_lines.append(f"- {value}")
+        else:
+            facts_lines.append(f"- {key}: {value}")
+
+    return {
+        "facts": "\n".join(facts_lines),
+        "instructions": "\n".join(instruction_lines),
+    }
 
 
 def save_memory(user_input: str, ai_response: str):

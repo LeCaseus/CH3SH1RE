@@ -11,6 +11,7 @@ from .prompts import (
 )
 from .tools import search_web, read_file
 from .llm import ask_llm
+from .memory import get_all_facts
 from typing import Callable, Optional
 
 # intents complex enough to benefit from a reasoning pass
@@ -209,6 +210,16 @@ def build_messages(
     system = prompt_fn()
     system["content"] += memory_context + file_context + search_context
 
+    # placed first so the model treats these as ground truth before anything else
+    # inject known user facts and behavioral instructions into every system prompt
+    facts = get_all_facts()
+    if facts["facts"] or facts["instructions"]:
+        prefix = ""
+        if facts["facts"]:
+            prefix += f"Known facts about this user:\n{facts['facts']}\n\n"
+        if facts["instructions"]:
+            prefix += f"Instructions for responding to this user:\n{facts['instructions']}\n\n"
+        system["content"] = prefix + system["content"]
     base_messages = [system, {"role": "user", "content": user_input}]
 
     # reasoning pass for complex intents

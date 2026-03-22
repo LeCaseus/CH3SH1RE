@@ -11,6 +11,8 @@ import os
 from .memory import init_db, save_memory, get_recent_memories, search_memories
 from .router import build_messages
 from .llm import ask_llm, stream_llm_chunks
+from .extractor import extract_facts
+from .memory import upsert_fact
 
 app = FastAPI()
 
@@ -81,12 +83,18 @@ def chat(message: str = Form(...), file: UploadFile = File(None)):
     messages = build_messages(message, memories, file_path)
 
     def generate():
-        # stream chunks to the browser as they arrive from Ollama
-        # accumulate the full response so we can save it to memory at the end
         full_response = ""
         for chunk in stream_llm_chunks(messages):
             full_response += chunk
             yield chunk
+
+        # save raw log as before
         save_memory(message, full_response)
+
+        # added: extract structured facts and upsert each one
+        # runs after streaming finishes so it never delays the response
+        facts = extract_facts(message, full_response)
+        for fact in facts:
+            upsert_fact(fact["key"], fact["value"])
 
     return StreamingResponse(generate(), media_type="text/plain")
