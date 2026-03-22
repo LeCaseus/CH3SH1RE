@@ -138,25 +138,6 @@ def get_search_synthesis_prompt() -> dict:
     }
 
 
-def get_synthesis_prompt() -> dict:
-    # used for the third pass in multi-temperature synthesis — never shown to user
-    return {
-        "role": "system",
-        "content": (
-            "You are a synthesis editor. You have two drafts answering the same question. "
-            "Draft A is cautious: accurate and grounded but may be too brief or miss nuance. "
-            "Draft B is creative: expansive and exploratory but may over-reach or speculate. "
-            "Write one final answer that combines the reliability of Draft A with the depth of Draft B. "
-            "Rules: "
-            "1. Never mention Draft A or Draft B — just write the answer. "
-            "2. Cut anything speculative not grounded in Draft A's facts. "
-            "3. Keep useful framing or angles from Draft B that add genuine value. "
-            "4. Match the tone and length appropriate to the question. "
-            "5. Do not pad — if the cautious draft was already complete, don't inflate it."
-        ),
-    }
-
-
 def get_thinking_prompt() -> dict:
     # used for the silent reasoning pass — never shown to user
     return {

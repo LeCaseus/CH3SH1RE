@@ -17,10 +17,6 @@ from typing import Callable, Optional
 # intents complex enough to benefit from a reasoning pass
 COT_INTENTS = {"career", "research", "study", "planning"}
 
-# intents that benefit from multi-temperature synthesis —
-# questions where both reliability and depth matter, not pure chat or quick lookups
-MULTI_TEMP_INTENTS = {"career", "research", "planning"}
-
 # keywords that trigger each prompt — order matters, more specific first
 INTENT_MAP = [
     (
@@ -224,7 +220,7 @@ def build_messages(
     user_input: str, memories: list[dict], file_path: Optional[str] = None
 ) -> list[dict]:
     # imported here to avoid circular import at module level
-    from .llm import think, synthesize
+    from .llm import think
     from .researcher import deep_research
 
     intent_name, prompt_fn = detect_intent(user_input)
@@ -285,20 +281,6 @@ def build_messages(
         system["content"] += (
             f"\n\nYour internal reasoning (use this to inform your answer, "
             f"do not repeat it verbatim):\n{reasoning}"
-        )
-
-    final_messages = [system, {"role": "user", "content": user_input}]
-
-    # multi-temperature synthesis — runs two drafts at different temperatures
-    # then combines them into a single better answer injected as context
-    # only fires for intents where depth + reliability both matter
-    # skipped for quick search — those answers are time-sensitive, not analytical
-    if intent_name in MULTI_TEMP_INTENTS and not needs_quick_search(user_input):
-        print(f"[multi-temp] running synthesis [{intent_name}]...")
-        synthesis = synthesize(final_messages)
-        system["content"] += (
-            f"\n\nPre-synthesized answer from multi-temperature reasoning "
-            f"(use this as the basis for your response, refine the phrasing if needed):\n{synthesis}"
         )
 
     return [system, {"role": "user", "content": user_input}]
