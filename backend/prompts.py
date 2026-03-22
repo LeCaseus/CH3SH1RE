@@ -136,3 +136,16 @@ def get_search_synthesis_prompt() -> dict:
             "If the results are insufficient to answer well, say so honestly."
         ),
     }
+
+
+def get_thinking_prompt() -> dict:
+    # used for the silent reasoning pass — never shown to user
+    return {
+        "role": "system",
+        "content": (
+            "You are a careful thinker. "
+            "The user has asked a question. Think through it step by step. "
+            "Consider the key facts, possible approaches, and what could go wrong. "
+            "Do not write a final answer yet — just reason out loud."
+        ),
+    }

@@ -13,6 +13,8 @@ from .tools import search_web, read_file
 from .llm import ask_llm
 from typing import Callable, Optional
 
+# intents complex enough to benefit from a reasoning pass
+COT_INTENTS = {"career", "research", "study", "planning"}
 
 # keywords that trigger each prompt — order matters, more specific first
 INTENT_MAP = [
@@ -156,16 +158,16 @@ SEARCH_TRIGGERS = [
 ]
 
 
-def detect_intent(user_input: str) -> Callable:
-    """Match user input to the most appropriate prompt function."""
+def detect_intent(user_input: str) -> tuple[str, Callable]:
+    """Returns (intent_name, prompt_fn)."""
     text = user_input.lower()
 
     for intent, prompt_fn, keywords in INTENT_MAP:
         if any(kw in text for kw in keywords):
-            return prompt_fn
+            return intent, prompt_fn
 
     # default to general chat
-    return get_chat_prompt
+    return "chat", get_chat_prompt
 
 
 def needs_search(user_input: str) -> bool:
@@ -177,8 +179,9 @@ def needs_search(user_input: str) -> bool:
 def build_messages(
     user_input: str, memories: list[dict], file_path: Optional[str] = None
 ) -> list[dict]:
+    from .llm import think  # here to avoid circular import at module level
 
-    prompt_fn = detect_intent(user_input)
+    intent_name, prompt_fn = detect_intent(user_input)
 
     file_context = ""
     if file_path:
@@ -191,7 +194,6 @@ def build_messages(
         search_context = f"\n\nWeb search results:\n{results}"
         prompt_fn = get_search_synthesis_prompt
 
-    # wrap memories as context, not as conversation history
     memory_context = ""
     if memories:
         pairs = []
@@ -207,6 +209,15 @@ def build_messages(
     system = prompt_fn()
     system["content"] += memory_context + file_context + search_context
 
-    # only current user message in messages, no history injected as fake turns
-    messages = [system, {"role": "user", "content": user_input}]
-    return messages
+    base_messages = [system, {"role": "user", "content": user_input}]
+
+    # reasoning pass for complex intents
+    if intent_name in COT_INTENTS:
+        print(f"Thinking [{intent_name}]...")
+        reasoning = think(base_messages)
+        system["content"] += (
+            f"\n\nYour internal reasoning (use this to inform your answer, "
+            f"do not repeat it verbatim):\n{reasoning}"
+        )
+
+    return [system, {"role": "user", "content": user_input}]

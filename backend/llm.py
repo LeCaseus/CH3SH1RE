@@ -1,5 +1,6 @@
 import requests
 import json
+from .prompts import get_thinking_prompt
 
 # Ollama runs locally on this port — no API key, no cloud
 OLLAMA_URL = "http://localhost:11434/api/chat"
@@ -40,6 +41,31 @@ def ask_llm(messages: list, stream: bool = False) -> str:
         response = requests.post(OLLAMA_URL, json=payload)
         data = response.json()
         return data.get("message", {}).get("content", "").strip()
+
+
+def think(messages: list) -> str:
+    """Silent reasoning pass — output never shown to user.
+    Takes the same message list as ask_llm, appends a thinking instruction,
+    and returns the model's raw reasoning as a string."""
+    original_system_content = next(
+        (m["content"] for m in messages if m["role"] == "system"), ""
+    )
+
+    thinking_prompt = get_thinking_prompt()
+    thinking_prompt[
+        "content"
+    ] += f"\n\nContext you have available:\n{original_system_content}"
+
+    thinking_messages = [thinking_prompt] + [
+        m for m in messages if m["role"] != "system"
+    ]
+    thinking_messages.append(
+        {
+            "role": "user",
+            "content": "Think through the question above step by step before I ask you to answer.",
+        }
+    )
+    return ask_llm(thinking_messages, stream=False)
 
 
 def stream_llm_chunks(messages: list):
