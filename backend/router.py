@@ -1,3 +1,4 @@
+import re
 from .prompts import (
     get_chat_prompt,
     get_writing_prompt,
@@ -16,6 +17,7 @@ from typing import Callable, Optional
 
 # intents complex enough to benefit from a reasoning pass
 COT_INTENTS = {"career", "research", "study", "planning"}
+FACTS_INTENTS = {"career", "writing", "planning", "personal"}
 
 # keywords that trigger each prompt — order matters, more specific first
 INTENT_MAP = [
@@ -189,6 +191,10 @@ DEEP_SEARCH_TRIGGERS = [
     "everything about",
     "what should i know",
     "help me understand",
+    "current situation",
+    "what happened to",
+    "update on",
+    "status of",
 ]
 
 
@@ -197,7 +203,7 @@ def detect_intent(user_input: str) -> tuple[str, Callable]:
     text = user_input.lower()
 
     for intent, prompt_fn, keywords in INTENT_MAP:
-        if any(kw in text for kw in keywords):
+        if any(re.search(rf"\b{re.escape(kw)}\b", text) for kw in keywords):
             return intent, prompt_fn
 
     return "chat", get_chat_prompt
@@ -219,6 +225,13 @@ def needs_deep_research(user_input: str) -> bool:
     if needs_quick_search(user_input):
         return False
     return any(trigger in text for trigger in DEEP_SEARCH_TRIGGERS)
+
+
+# only inject facts if the user's message shares keywords with any fact value
+def facts_are_relevant(facts: dict, user_input: str) -> bool:
+    text = user_input.lower()
+    all_values = facts["facts"] + facts["instructions"]
+    return any(word in all_values.lower() for word in text.split() if len(word) > 4)
 
 
 def build_messages(
@@ -271,7 +284,7 @@ def build_messages(
     # inject known user facts and behavioural instructions first,
     # so the model treats them as ground truth before anything else
     facts = get_all_facts()
-    if facts["facts"] or facts["instructions"]:
+    if (facts["facts"] or facts["instructions"]) and intent_name in FACTS_INTENTS:
         prefix = ""
         if facts["facts"]:
             prefix += f"Known facts about this user:\n{facts['facts']}\n\n"
